@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Records Master Dashboard</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
     <style>
         :root {
             --primary: #3ecf8e;
@@ -161,23 +161,30 @@
 </div>
 
 <script>
-    // System Fail-Safe Global Interceptor
+    // System Fail-Safe Interceptor
     window.onerror = function (msg, url, line) {
         alert("Runtime Intercept: " + msg + " at line " + line);
         return false;
     };
 
-    // Configuration Settings
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
-    const supabaseClient = window.supabase ? window.supabase : supabase;
-    const client = supabaseClient.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // Explicit fail-safe targeting of the correct script context object
+    let client;
+    try {
+        const targetSupabase = window.supabase ? window.supabase : (typeof supabase !== 'undefined' ? supabase : null);
+        if (!targetSupabase) {
+            throw new Error("Supabase script library failed to inject into browser memory.");
+        }
+        client = targetSupabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch(e) {
+        alert("Startup Initialization Crash: " + e.message);
+    }
 
-    // Dynamic Cached Memory Array
     let MASTER_DATA = [];
     let selectedBadges = [];
 
-    // Page Switching Logic
     function switchPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -185,47 +192,44 @@
         document.getElementById(`page-${pageId}`).classList.add('active');
         document.getElementById(`nav-${pageId}`).classList.add('active');
 
-        if(pageId === 'dashboard' || pageId === 'dropbox') {
+        if((pageId === 'dashboard' || pageId === 'dropbox') && client) {
             fetchRecords();
         }
     }
 
-    // Natural Alphanumeric Sorting Engine (Recognizes digit variances like MGM1, MGM01, MGM001, MGM10)
+    // Natural Alphanumeric Sorting Engine 
     function naturalSort(a, b) {
-        return a.Test_code.localeCompare(b.Test_code, undefined, { numeric: true, sensitivity: 'base' });
+        const valA = a.Test_code ? String(a.Test_code) : '';
+        const valB = b.Test_code ? String(b.Test_code) : '';
+        return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
     }
 
-    // Fetch master dataset from Supabase
     async function fetchRecords() {
+        if(!client) return;
         const { data, error } = await client.from('Test_records').select('*');
         if (error) {
             console.error(error);
             return;
         }
         
-        // Apply pure descending/ascending logic sorting sequence dynamically
         MASTER_DATA = data ? data.sort(naturalSort) : [];
         
-        // Refresh interfaces
         filterData('dashboard');
         filterData('dropbox');
     }
 
-    // Advanced Multi-Query & Pattern Evaluation Filter Pipeline
     function filterData(mode) {
         let searchInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'dropbox-search').value.toLowerCase();
         let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-dropbox');
         
-        // Parse multi-split items separated by commas
         let searchQueries = searchInput.split(',').map(q => q.trim()).filter(q => q.length > 0);
 
         let filtered = MASTER_DATA.filter(row => {
-            let code = row.Test_code ? row.Test_code.toLowerCase() : '';
-            let cat = row.Category ? row.Category.toLowerCase() : '';
-            let status = row.status ? row.status.toLowerCase() : '';
-            let comment = row.Comments ? row.Comments.toLowerCase() : '';
+            let code = row.Test_code ? String(row.Test_code).toLowerCase() : '';
+            let cat = row.Category ? String(row.Category).toLowerCase() : '';
+            let status = row.status ? String(row.status).toLowerCase() : '';
+            let comment = row.Comments ? String(row.Comments).toLowerCase() : '';
 
-            // 1. Text Search filtering (Supports individual comma-separated strings natively)
             let matchesSearch = true;
             if (searchQueries.length > 0) {
                 matchesSearch = searchQueries.some(query => 
@@ -233,7 +237,6 @@
                 );
             }
 
-            // 2. Combo Category Badge Filter (DropBox specific feature)
             let matchesBadges = true;
             if (mode === 'dropbox' && selectedBadges.length > 0) {
                 matchesBadges = selectedBadges.some(b => cat === b.toLowerCase());
@@ -242,7 +245,6 @@
             return matchesSearch && matchesBadges;
         });
 
-        // Write row layout blocks to table safely
         targetBody.innerHTML = filtered.map(row => `
             <tr>
                 <td><b>${row.Test_code || ''}</b></td>
@@ -256,11 +258,9 @@
             </tr>
         `).join('');
 
-        // Dynamic Counters update
         document.getElementById(`${mode}-count`).innerText = `Found ${filtered.length} total entries matched in runtime sorting.`;
     }
 
-    // Manage Multi-Select Pill Badges inside the Dropbox View UI
     function toggleBadge(element) {
         const val = element.getAttribute('data-value');
         if(selectedBadges.includes(val)) {
@@ -273,9 +273,10 @@
         filterData('dropbox');
     }
 
-    // Handle standard submission insertion
     document.getElementById('gymForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        if(!client) { alert("Database connection unavailable."); return; }
+        
         const btn = document.getElementById('submitBtn');
         btn.innerText = "Processing...";
         btn.disabled = true;
@@ -294,15 +295,14 @@
         } else {
             alert('Data saved perfectly into live database records!');
             document.getElementById('gymForm').reset();
-            switchPage('dashboard'); // Forward to dashboard view directly
+            switchPage('dashboard');
         }
         btn.innerText = "Submit Data";
         btn.disabled = false;
     });
 
-    // Run core engine download hook on initialization launch
     window.onload = () => {
-        fetchRecords();
+        if(client) fetchRecords();
     };
 </script>
 
