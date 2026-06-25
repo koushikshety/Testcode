@@ -1,106 +1,309 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Data Entry</title>
+    <title>Gym Records Master Dashboard</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
-        .container { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        :root {
+            --primary: #3ecf8e;
+            --primary-hover: #34b279;
+            --bg: #f4f4f9;
+            --dark: #2c3e50;
+        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--dark); }
+        
+        /* Navigation Bar */
+        nav { background-color: white; padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; gap: 15px; position: sticky; top: 0; z-index: 100; }
+        nav button { padding: 10px 20px; font-size: 15px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: all 0.2s; background: #e0e0e0; color: var(--dark); }
+        nav button.active { background-color: var(--primary); color: white; }
+        
+        /* Main Container */
+        .container { max-width: 1100px; margin: 30px auto; padding: 20px; }
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        /* Card Layouts */
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--dark); border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        
+        /* Form Styling */
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { width: 100%; padding: 10px; background: #3ecf8e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #34b279; }
+        input, select, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        .submit-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .submit-btn:hover { background: var(--primary-hover); }
+
+        /* Search Controls */
+        .search-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .search-bar { font-size: 15px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; }
+        .search-bar:focus { border-color: var(--primary); outline: none; }
+        .badge-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
+        .filter-badge { padding: 8px 16px; background: #e0e0e0; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 13px; user-select: none; }
+        .filter-badge.selected { background: var(--dark); color: white; }
+
+        /* Real Data Table Layout */
+        .table-responsive { overflow-x: auto; background: white; border-radius: 8px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background-color: #fafafa; font-weight: bold; color: #666; }
+        tr:hover { background-color: #fafdff; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .status-normal { background-color: #e6f9f0; color: #1f925b; }
+        .status-notnormal { background-color: #feecee; color: #eb3b5a; }
+        
+        .meta-info { font-size: 13px; color: #666; margin-bottom: 10px; font-style: italic; }
     </style>
 </head>
 <body>
 
+<nav>
+    <button id="nav-dashboard" class="active" onclick="switchPage('dashboard')">📊 Dashboard Dashboard</button>
+    <button id="nav-add" onclick="switchPage('add')">➕ Add Entry</button>
+    <button id="nav-dropbox" onclick="switchPage('dropbox')">📥 DropBox Filters</button>
+</nav>
+
 <div class="container">
-    <h2>Gym Log Entry</h2>
-    <form id="gymForm">
-        <div class="form-group">
-            <label for="gymCode">Gym Test Code</label>
-            <input type="text" id="gymCode" required placeholder="e.g. MGM-101">
+
+    <div id="page-dashboard" class="page active">
+        <div class="card">
+            <h2>All System Records</h2>
+            <div class="search-container">
+                <input type="text" id="db-search" class="search-bar" oninput="filterData('dashboard')" placeholder="Search anything, or mix multiple codes (e.g. MGM005, MGM1135, MGM044)...">
+                <div class="meta-info" id="db-count">Loading data entries...</div>
+            </div>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Gym Test Code</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-dashboard">
+                        </tbody>
+                </table>
+            </div>
         </div>
-        
-        <div class="form-group">
-            <label for="category">Category</label>
-            <input type="text" id="category" required placeholder="e.g. Cardio, Weights">
+    </div>
+
+    <div id="page-add" class="page">
+        <div class="card" style="max-width: 500px; margin: auto;">
+            <h2>Create Gym Entry</h2>
+            <form id="gymForm">
+                <div class="form-group">
+                    <label for="gymCode">Gym Test Code</label>
+                    <input type="text" id="gymCode" required placeholder="Type direct code here (No formats enforced)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <input type="text" id="category" required placeholder="e.g. NGS, Cardio, HISTO">
+                </div>
+                
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="Normal">Normal</option>
+                        <option value="Not Normal">Not Normal</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="comments">Comments</label>
+                    <textarea id="comments" rows="4" placeholder="Add custom diagnostic notes..."></textarea>
+                </div>
+                
+                <button type="submit" id="submitBtn" class="submit-btn">Submit Data</button>
+            </form>
         </div>
-        
-        <div class="form-group">
-            <label for="status">Status</label>
-            <select id="status">
-                <option value="Normal">Normal</option>
-                <option value="Not Normal">Not Normal</option>
-            </select>
+    </div>
+
+    <div id="page-dropbox" class="page">
+        <div class="card">
+            <h2>DropBox Advanced Category Mix Engine</h2>
+            <div class="search-container">
+                <label>Multi-Target Search Bar (Supports partial matches and comma separation):</label>
+                <input type="text" id="dropbox-search" class="search-bar" oninput="filterData('dropbox')" placeholder="e.g. MGM01, MGM033...">
+                
+                <label style="margin-top: 5px;">Combo Pre-Filters (Select one or toggle multiple to mix):</label>
+                <div class="badge-container">
+                    <div class="filter-badge" data-value="NGS" onclick="toggleBadge(this)">NGS</div>
+                    <div class="filter-badge" data-value="HISTO" onclick="toggleBadge(this)">HISTO</div>
+                    <div class="filter-badge" data-value="FISH" onclick="toggleBadge(this)">FISH</div>
+                    <div class="filter-badge" data-value="IHC" onclick="toggleBadge(this)">IHC</div>
+                </div>
+                <div class="meta-info" id="dropbox-count">Showing filtered records...</div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Gym Test Code</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-dropbox">
+                        </tbody>
+                </table>
+            </div>
         </div>
-        
-        <div class="form-group">
-            <label for="comments">Comments</label>
-            <textarea id="comments" rows="3" placeholder="Add any details..."></textarea>
-        </div>
-        
-        <button type="submit" id="submitBtn">Submit Data</button>
-    </form>
+    </div>
+
 </div>
 
 <script>
-    // Universal fail-safe tracker: if the page crashes, this will force an error alert out
-    window.onerror = function (message, url, line) {
-        alert("System Crash Error: " + message + " on line " + line);
+    // System Fail-Safe Global Interceptor
+    window.onerror = function (msg, url, line) {
+        alert("Runtime Intercept: " + msg + " at line " + line);
         return false;
     };
 
+    // Configuration Settings
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
-    
-    // Cleaner initialization fallback
     const supabaseClient = window.supabase ? window.supabase : supabase;
     const client = supabaseClient.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    document.getElementById('gymForm').addEventListener('submit', async (e) => {
-        e.preventDefault(); 
+    // Dynamic Cached Memory Array
+    let MASTER_DATA = [];
+    let selectedBadges = [];
+
+    // Page Switching Logic
+    function switchPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
         
-        // Visual indicator that button was tapped
-        const btn = document.getElementById('submitBtn');
-        btn.innerText = "Sending Data...";
-        btn.style.background = "#ffa500";
+        document.getElementById(`page-${pageId}`).classList.add('active');
+        document.getElementById(`nav-${pageId}`).classList.add('active');
 
-        const gymCode = document.getElementById('gymCode').value;
-        const category = document.getElementById('category').value;
-        const status = document.getElementById('status').value;
-        const comments = document.getElementById('comments').value;
-
-        try {
-            const { data, error } = await client
-                .from('Test_records') 
-                .insert([
-                    { 
-                        'Test_code': gymCode, 
-                        'Category': category, 
-                        'status': status, 
-                        'Comments': comments 
-                    }
-                ]);
-
-            if (error) {
-                alert('Database Error: ' + error.message);
-            } else {
-                alert('Data saved perfectly!');
-                document.getElementById('gymForm').reset(); 
-            }
-        } catch (err) {
-            alert('JavaScript Processing Error: ' + err.message);
-        } finally {
-            // Reset button style
-            btn.innerText = "Submit Data";
-            btn.style.background = "#3ecf8e";
+        if(pageId === 'dashboard' || pageId === 'dropbox') {
+            fetchRecords();
         }
+    }
+
+    // Natural Alphanumeric Sorting Engine (Recognizes digit variances like MGM1, MGM01, MGM001, MGM10)
+    function naturalSort(a, b) {
+        return a.Test_code.localeCompare(b.Test_code, undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    // Fetch master dataset from Supabase
+    async function fetchRecords() {
+        const { data, error } = await client.from('Test_records').select('*');
+        if (error) {
+            console.error(error);
+            return;
+        }
+        
+        // Apply pure descending/ascending logic sorting sequence dynamically
+        MASTER_DATA = data ? data.sort(naturalSort) : [];
+        
+        // Refresh interfaces
+        filterData('dashboard');
+        filterData('dropbox');
+    }
+
+    // Advanced Multi-Query & Pattern Evaluation Filter Pipeline
+    function filterData(mode) {
+        let searchInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'dropbox-search').value.toLowerCase();
+        let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-dropbox');
+        
+        // Parse multi-split items separated by commas
+        let searchQueries = searchInput.split(',').map(q => q.trim()).filter(q => q.length > 0);
+
+        let filtered = MASTER_DATA.filter(row => {
+            let code = row.Test_code ? row.Test_code.toLowerCase() : '';
+            let cat = row.Category ? row.Category.toLowerCase() : '';
+            let status = row.status ? row.status.toLowerCase() : '';
+            let comment = row.Comments ? row.Comments.toLowerCase() : '';
+
+            // 1. Text Search filtering (Supports individual comma-separated strings natively)
+            let matchesSearch = true;
+            if (searchQueries.length > 0) {
+                matchesSearch = searchQueries.some(query => 
+                    code.includes(query) || cat.includes(query) || status.includes(query) || comment.includes(query)
+                );
+            }
+
+            // 2. Combo Category Badge Filter (DropBox specific feature)
+            let matchesBadges = true;
+            if (mode === 'dropbox' && selectedBadges.length > 0) {
+                matchesBadges = selectedBadges.some(b => cat === b.toLowerCase());
+            }
+
+            return matchesSearch && matchesBadges;
+        });
+
+        // Write row layout blocks to table safely
+        targetBody.innerHTML = filtered.map(row => `
+            <tr>
+                <td><b>${row.Test_code || ''}</b></td>
+                <td>${row.Category || '<span style="color:#aaa">None</span>'}</td>
+                <td>
+                    <span class="status-badge ${row.status === 'Normal' ? 'status-normal' : 'status-notnormal'}">
+                        ${row.status || 'Unknown'}
+                    </span>
+                </td>
+                <td>${row.Comments || ''}</td>
+            </tr>
+        `).join('');
+
+        // Dynamic Counters update
+        document.getElementById(`${mode}-count`).innerText = `Found ${filtered.length} total entries matched in runtime sorting.`;
+    }
+
+    // Manage Multi-Select Pill Badges inside the Dropbox View UI
+    function toggleBadge(element) {
+        const val = element.getAttribute('data-value');
+        if(selectedBadges.includes(val)) {
+            selectedBadges = selectedBadges.filter(v => v !== val);
+            element.classList.remove('selected');
+        } else {
+            selectedBadges.push(val);
+            element.classList.add('selected');
+        }
+        filterData('dropbox');
+    }
+
+    // Handle standard submission insertion
+    document.getElementById('gymForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+
+        const gymCode = document.getElementById('gymCode').value.trim();
+        const category = document.getElementById('category').value.trim();
+        const status = document.getElementById('status').value;
+        const comments = document.getElementById('comments').value.trim();
+
+        const { error } = await client.from('Test_records').insert([
+            { 'Test_code': gymCode, 'Category': category, 'status': status, 'Comments': comments }
+        ]);
+
+        if (error) {
+            alert('Database Submission Error: ' + error.message);
+        } else {
+            alert('Data saved perfectly into live database records!');
+            document.getElementById('gymForm').reset();
+            switchPage('dashboard'); // Forward to dashboard view directly
+        }
+        btn.innerText = "Submit Data";
+        btn.disabled = false;
     });
+
+    // Run core engine download hook on initialization launch
+    window.onload = () => {
+        fetchRecords();
+    };
 </script>
 
 </body>
