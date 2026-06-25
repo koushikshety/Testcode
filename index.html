@@ -71,8 +71,8 @@
         <div class="card">
             <h2>All System Records</h2>
             <div class="search-container">
-                <input type="text" id="db-search" class="search-bar" oninput="safeFilterTrigger('dashboard')" placeholder="Search anything, or mix multiple codes (e.g. MGM005, MGM1135, MGM044)...">
-                <div class="meta-info" id="db-count">Loading data entries...</div>
+                <input type="text" id="db-search" class="search-bar" oninput="filterData('dashboard')" placeholder="Search codes separated by commas (e.g. MGM005, RS042, MGM044)...">
+                <div class="meta-info" id="db-count">Loading entries...</div>
             </div>
             
             <div class="table-responsive">
@@ -98,12 +98,12 @@
             <form id="gymForm">
                 <div class="form-group">
                     <label for="gymCode">Gym Test Code</label>
-                    <input type="text" id="gymCode" required placeholder="Type direct code here (No formats enforced)">
+                    <input type="text" id="gymCode" required placeholder="Type code here (e.g. MGM042 or RS042)">
                 </div>
                 
                 <div class="form-group">
                     <label for="category">Category</label>
-                    <input type="text" id="category" required placeholder="e.g. NGS, Cardio, HISTO">
+                    <input type="text" id="category" required placeholder="e.g. NGS, HISTO, FISH, IHC">
                 </div>
                 
                 <div class="form-group">
@@ -128,8 +128,8 @@
         <div class="card">
             <h2>DropBox Advanced Category Mix Engine</h2>
             <div class="search-container">
-                <label>Multi-Target Search Bar (Supports partial matches and comma separation):</label>
-                <input type="text" id="dropbox-search" class="search-bar" oninput="safeFilterTrigger('dropbox')" placeholder="e.g. MGM01, MGM033...">
+                <label>Multi-Target Code Search Bar (Comma-separated matches strictly on codes):</label>
+                <input type="text" id="dropbox-search" class="search-bar" oninput="filterData('dropbox')" placeholder="e.g. MGM01, RS042...">
                 
                 <label style="margin-top: 5px;">Combo Pre-Filters (Select one or toggle multiple to mix):</label>
                 <div class="badge-container">
@@ -161,10 +161,10 @@
 </div>
 
 <script>
-    // System Fail-Safe Interceptor
+    // Silently handle runtime exceptions so the UI never locks up
     window.onerror = function (msg, url, line) {
-        console.error("Runtime Intercepted Error:", msg, "at line", line);
-        return true; // Stop error from popping up crashing boxes continuously
+        console.warn("Caught suppressed event stream error:", msg, "at line", line);
+        return true; 
     };
 
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
@@ -177,7 +177,7 @@
             client = targetSupabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
     } catch(e) {
-        console.error("Startup Connection Error", e);
+        console.error("Initialization Failed", e);
     }
 
     let MASTER_DATA = [];
@@ -195,10 +195,10 @@
         }
     }
 
-    // Natural Alphanumeric Sorting Engine with robust null checks
+    // Comprehensive Alphanumeric Sorting (Handles both MGM and RS code series sorted cleanly)
     function naturalSort(a, b) {
-        let valA = (a && a.Test_code) ? String(a.Test_code) : '';
-        let valB = (b && b.Test_code) ? String(b.Test_code) : '';
+        let valA = (a && a.Test_code) ? String(a.Test_code).trim() : '';
+        let valB = (b && b.Test_code) ? String(b.Test_code).trim() : '';
         return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
     }
 
@@ -216,43 +216,30 @@
         filterData('dropbox');
     }
 
-    // Fail-safe trigger wrapper for input fields
-    function safeFilterTrigger(mode) {
-        try {
-            filterData(mode);
-        } catch (err) {
-            console.error("Filter loop error suppressed layout natively:", err);
-        }
-    }
-
     function filterData(mode) {
-        let searchInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'dropbox-search').value.toLowerCase();
+        let searchInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'dropbox-search').value.toLowerCase().trim();
         let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-dropbox');
         
+        // Split values safely using comma delimiters
         let searchQueries = searchInput.split(',').map(q => q.trim()).filter(q => q.length > 0);
 
         let filtered = MASTER_DATA.filter(row => {
-            // CRITICAL FIX: Absolute verification that row and its text contents are safe strings
             if (!row) return false;
 
-            let code = (row.Test_code !== null && row.Test_code !== undefined) ? String(row.Test_code).toLowerCase() : '';
-            let cat = (row.Category !== null && row.Category !== undefined) ? String(row.Category).toLowerCase() : '';
-            let status = (row.status !== null && row.status !== undefined) ? String(row.status).toLowerCase() : '';
-            let comment = (row.Comments !== null && row.Comments !== undefined) ? String(row.Comments).toLowerCase() : '';
+            // TARGET LOCK: Search logic looks ONLY at the Test_code column
+            let code = (row.Test_code !== null && row.Test_code !== undefined) ? String(row.Test_code).toLowerCase().trim() : '';
+            let cat = (row.Category !== null && row.Category !== undefined) ? String(row.Category).toLowerCase().trim() : '';
 
-            // Clean up database text "null" string leftovers
             if (code === 'null') code = '';
             if (cat === 'null') cat = '';
-            if (status === 'null') status = '';
-            if (comment === 'null') comment = '';
 
+            // 1. Code Column Only Search Rule
             let matchesSearch = true;
             if (searchQueries.length > 0) {
-                matchesSearch = searchQueries.some(query => 
-                    code.includes(query) || cat.includes(query) || status.includes(query) || comment.includes(query)
-                );
+                matchesSearch = searchQueries.some(query => code.includes(query));
             }
 
+            // 2. DropBox Pre-Filter Combos Matching Layout
             let matchesBadges = true;
             if (mode === 'dropbox' && selectedBadges.length > 0) {
                 matchesBadges = selectedBadges.some(b => cat === b.toLowerCase());
@@ -261,6 +248,7 @@
             return matchesSearch && matchesBadges;
         });
 
+        // Safe Dynamic Layout Rendering Assembly
         targetBody.innerHTML = filtered.map(row => {
             if(!row) return '';
             let dispCode = row.Test_code && String(row.Test_code) !== 'null' ? row.Test_code : '';
@@ -282,7 +270,7 @@
             `;
         }).join('');
 
-        document.getElementById(`${mode}-count`).innerText = `Found ${filtered.length} total entries matched in runtime sorting.`;
+        document.getElementById(`${mode}-count`).innerText = `Found ${filtered.length} total entries matched.`;
     }
 
     function toggleBadge(element) {
