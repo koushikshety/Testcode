@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Data Entry</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
         .container { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -43,42 +44,61 @@
             <textarea id="comments" rows="3" placeholder="Add any details..."></textarea>
         </div>
         
-        <button type="submit">Submit Data</button>
+        <button type="submit" id="submitBtn">Submit Data</button>
     </form>
 </div>
 
 <script>
+    // Universal fail-safe tracker: if the page crashes, this will force an error alert out
+    window.onerror = function (message, url, line) {
+        alert("System Crash Error: " + message + " on line " + line);
+        return false;
+    };
+
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
     
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Cleaner initialization fallback
+    const supabaseClient = window.supabase ? window.supabase : supabase;
+    const client = supabaseClient.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     document.getElementById('gymForm').addEventListener('submit', async (e) => {
         e.preventDefault(); 
+        
+        // Visual indicator that button was tapped
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Sending Data...";
+        btn.style.background = "#ffa500";
 
         const gymCode = document.getElementById('gymCode').value;
         const category = document.getElementById('category').value;
         const status = document.getElementById('status').value;
         const comments = document.getElementById('comments').value;
 
-        // Sending data to your fixed layout
-        const { data, error } = await supabase
-            .from('Test_records') 
-            .insert([
-                { 
-                    'Test_code': gymCode, 
-                    'Category': category, 
-                    'status': status, // Perfectly tracking your new clean 'status' column
-                    'Comments': comments 
-                }
-            ]);
+        try {
+            const { data, error } = await client
+                .from('Test_records') 
+                .insert([
+                    { 
+                        'Test_code': gymCode, 
+                        'Category': category, 
+                        'status': status, 
+                        'Comments': comments 
+                    }
+                ]);
 
-        if (error) {
-            console.error('Full Error Object:', error);
-            alert('Failed to save data: ' + JSON.stringify(error));
-        } else {
-            alert('Data sent to Supabase successfully!');
-            document.getElementById('gymForm').reset(); 
+            if (error) {
+                alert('Database Error: ' + error.message);
+            } else {
+                alert('Data saved perfectly!');
+                document.getElementById('gymForm').reset(); 
+            }
+        } catch (err) {
+            alert('JavaScript Processing Error: ' + err.message);
+        } finally {
+            // Reset button style
+            btn.innerText = "Submit Data";
+            btn.style.background = "#3ecf8e";
         }
     });
 </script>
