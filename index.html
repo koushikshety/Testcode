@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Data Entry</title>
-    <!-- Load the Supabase JavaScript Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
@@ -49,41 +48,37 @@
 </div>
 
 <script>
-    // Your verified credentials
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
     
-    // Initializing the connection client
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Handle Form Submission
     document.getElementById('gymForm').addEventListener('submit', async (e) => {
         e.preventDefault(); 
 
-        // Grab values from the HTML form inputs
         const gymCode = document.getElementById('gymCode').value;
         const category = document.getElementById('category').value;
         const status = document.getElementById('status').value;
         const comments = document.getElementById('comments').value;
 
-        // Inserting rows into your precise Supabase schema
+        // Sending data to your fixed layout
         const { data, error } = await supabase
             .from('Test_records') 
             .insert([
                 { 
                     'Test_code': gymCode, 
                     'Category': category, 
-                    'Nor/Not': status, 
+                    'status': status, // Perfectly tracking your new clean 'status' column
                     'Comments': comments 
                 }
             ]);
 
         if (error) {
-            console.error('Error inserting data:', error);
-            alert('Failed to save data: ' + error.message);
+            console.error('Full Error Object:', error);
+            alert('Failed to save data: ' + JSON.stringify(error));
         } else {
             alert('Data sent to Supabase successfully!');
-            document.getElementById('gymForm').reset(); // Clear form fields
+            document.getElementById('gymForm').reset(); 
         }
     });
 </script>
