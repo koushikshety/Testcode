@@ -170,7 +170,6 @@
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
     
-    // Explicit fail-safe targeting of the correct script context object
     let client;
     try {
         const targetSupabase = window.supabase ? window.supabase : (typeof supabase !== 'undefined' ? supabase : null);
@@ -225,6 +224,7 @@
         let searchQueries = searchInput.split(',').map(q => q.trim()).filter(q => q.length > 0);
 
         let filtered = MASTER_DATA.filter(row => {
+            // FIX: Ensure empty/null database fields turn into safely parseable empty text strings
             let code = row.Test_code ? String(row.Test_code).toLowerCase() : '';
             let cat = row.Category ? String(row.Category).toLowerCase() : '';
             let status = row.status ? String(row.status).toLowerCase() : '';
