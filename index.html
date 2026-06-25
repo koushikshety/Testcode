@@ -11,6 +11,8 @@
             --primary-hover: #34b279;
             --bg: #f4f4f9;
             --dark: #2c3e50;
+            --accent-blue: #3498db;
+            --accent-blue-hover: #2980b9;
         }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--dark); }
         
@@ -35,13 +37,19 @@
         .submit-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .submit-btn:hover { background: var(--primary-hover); }
 
-        /* Search Controls */
+        /* Search & Filter Controls */
         .search-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
         .search-bar { font-size: 15px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; }
         .search-bar:focus { border-color: var(--primary); outline: none; }
-        .badge-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
-        .filter-badge { padding: 8px 16px; background: #e0e0e0; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 13px; user-select: none; }
-        .filter-badge.selected { background: var(--dark); color: white; }
+
+        /* Utility Actions Row */
+        .action-row { display: flex; gap: 10px; margin-bottom: 5px; }
+        .btn-utility { padding: 8px 16px; font-size: 13px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; background: #e0e0e0; color: var(--dark); }
+        .btn-utility:hover { background: #d0d0d0; }
+        .btn-print { background-color: #7f8c8d; color: white; }
+        .btn-print:hover { background-color: #6c7a7d; }
+        .btn-export { background-color: var(--accent-blue); color: white; }
+        .btn-export:hover { background-color: var(--accent-blue-hover); }
 
         /* Table Layout */
         .table-responsive { overflow-x: auto; background: white; border-radius: 8px; border: 1px solid #eee; }
@@ -55,14 +63,24 @@
         .status-notnormal { background-color: #feecee; color: #eb3b5a; }
         
         .meta-info { font-size: 13px; color: #666; margin-bottom: 10px; font-style: italic; }
+
+        /* Native Print Optimization Engine */
+        @media print {
+            nav, .search-container, .action-row { display: none !important; }
+            body { background-color: white; color: black; }
+            .container { max-width: 100%; margin: 0; padding: 0; }
+            .card { box-shadow: none; padding: 0; margin: 0; }
+            th { background-color: #eee !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .status-badge { border: 1px solid #ccc !important; padding: 2px 6px; }
+        }
     </style>
 </head>
 <body>
 
 <nav>
     <button id="nav-dashboard" class="active" onclick="switchPage('dashboard')">📊 All Test Records</button>
+    <button id="nav-filter" onclick="switchPage('filter')">🏷️ Category Filters</button>
     <button id="nav-add" onclick="switchPage('add')">➕ Add New Test Code</button>
-    <button id="nav-dropbox" onclick="switchPage('dropbox')">📥 DropBox Filter Hub</button>
 </nav>
 
 <div class="container">
@@ -72,6 +90,12 @@
             <h2>MGM Master Database Inventory</h2>
             <div class="search-container">
                 <input type="text" id="db-search" class="search-bar" oninput="filterData('dashboard')" placeholder="Search multiple Test Codes (e.g. MGM005, RS042, MGM001&MGM002)...">
+                
+                <div class="action-row">
+                    <button class="btn-utility btn-print" onclick="window.print()">🖨️ Print View</button>
+                    <button class="btn-utility btn-export" onclick="exportToCSV()">📥 Export to CSV</button>
+                </div>
+
                 <div class="meta-info" id="db-count">Loading entries from system database...</div>
             </div>
             
@@ -86,7 +110,32 @@
                         </tr>
                     </thead>
                     <tbody id="table-body-dashboard">
-                        </tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-filter" class="page">
+        <div class="card">
+            <h2>Core Medical Segments (NGS, IHC, HISTO, FISH)</h2>
+            <div class="search-container">
+                <input type="text" id="filter-search" class="search-bar" oninput="filterData('filter')" placeholder="Filter core categories by Test Code...">
+                <div class="meta-info" id="filter-count">Sorting segment rows...</div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Code</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-filter">
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -124,44 +173,9 @@
         </div>
     </div>
 
-    <div id="page-dropbox" class="page">
-        <div class="card">
-            <h2>DropBox Advanced Category Mix Engine</h2>
-            <div class="search-container">
-                <label>Multi-Target Code Search Engine (Searching clears default pre-filters):</label>
-                <input type="text" id="dropbox-search" class="search-bar" oninput="filterData('dropbox')" placeholder="Type to filter specific records (e.g. MGM01, RS042)...">
-                
-                <label style="margin-top: 5px;">Active Category Filters:</label>
-                <div class="badge-container">
-                    <div class="filter-badge" data-value="NGS" id="badge-NGS" onclick="toggleBadge(this)">NGS</div>
-                    <div class="filter-badge" data-value="HISTO" id="badge-HISTO" onclick="toggleBadge(this)">HISTO</div>
-                    <div class="filter-badge" data-value="FISH" id="badge-FISH" onclick="toggleBadge(this)">FISH</div>
-                    <div class="filter-badge" data-value="IHC" id="badge-IHC" onclick="toggleBadge(this)">IHC</div>
-                </div>
-                <div class="meta-info" id="dropbox-count">Showing pre-filtered core categories...</div>
-            </div>
-
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Test Code</th>
-                            <th>Category</th>
-                            <th>Status</th>
-                            <th>Comments</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body-dropbox">
-                        </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
 </div>
 
 <script>
-    // Suppress unhandled execution events cleanly
     window.onerror = function (msg, url, line) {
         console.warn("Muted exception trace captured safely:", msg, "at line", line);
         return true; 
@@ -181,8 +195,8 @@
     }
 
     let MASTER_DATA = [];
-    // Automatically pre-load the 4 standard medical categories on initiation
-    let selectedBadges = ["NGS", "HISTO", "FISH", "IHC"];
+    let CURRENT_FILTERED_DATA = [];
+    const CORE_CATEGORIES = ["NGS", "IHC", "HISTO", "FISH"];
 
     function switchPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -191,31 +205,11 @@
         document.getElementById(`page-${pageId}`).classList.add('active');
         document.getElementById(`nav-${pageId}`).classList.add('active');
 
-        if (pageId === 'dropbox') {
-            // Re-apply default filters on fresh navigation visits if search input is empty
-            if (document.getElementById('dropbox-search').value.trim() === "") {
-                selectedBadges = ["NGS", "HISTO", "FISH", "IHC"];
-                syncBadgeUI();
-            }
-        }
-
-        if((pageId === 'dashboard' || pageId === 'dropbox') && client) {
+        if((pageId === 'dashboard' || pageId === 'filter') && client) {
             fetchRecords();
         }
     }
 
-    function syncBadgeUI() {
-        document.querySelectorAll('.filter-badge').forEach(badge => {
-            const val = badge.getAttribute('data-value');
-            if (selectedBadges.includes(val)) {
-                badge.classList.add('selected');
-            } else {
-                badge.classList.remove('selected');
-            }
-        });
-    }
-
-    // Comprehensive Natural Alphanumeric Sorting
     function naturalSort(a, b) {
         let valA = (a && a.Test_code) ? String(a.Test_code).trim() : '';
         let valB = (b && b.Test_code) ? String(b.Test_code).trim() : '';
@@ -232,51 +226,42 @@
         
         MASTER_DATA = data ? data.sort(naturalSort) : [];
         
-        // Initial interface fill
-        syncBadgeUI();
         filterData('dashboard');
-        filterData('dropbox');
+        filterData('filter');
     }
 
     function filterData(mode) {
-        let rawInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'dropbox-search').value.toLowerCase().trim();
-        let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-dropbox');
+        let rawInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'filter-search').value.toLowerCase().trim();
+        let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-filter');
         
-        // Split complex parameters dynamically using both commas and ampersands seamlessly
         let searchQueries = rawInput.split(/[,&]+/).map(q => q.trim()).filter(q => q.length > 0);
 
-        // DropBox Specific Rule: If a user begins typing in the search bar, ignore the default pre-filters
-        let activeBadges = selectedBadges;
-        if (mode === 'dropbox' && searchQueries.length > 0) {
-            activeBadges = []; 
-        }
-
-        let filtered = MASTER_DATA.filter(row => {
+        let dataPool = MASTER_DATA.filter(row => {
             if (!row) return false;
 
-            // Strict focus targeting ONLY the Test_code column
             let code = (row.Test_code !== null && row.Test_code !== undefined) ? String(row.Test_code).toLowerCase().trim() : '';
             let cat = (row.Category !== null && row.Category !== undefined) ? String(row.Category).toUpperCase().trim() : '';
-
             if (code === 'null') code = '';
 
-            // 1. Evaluate Code Column matching rule
             let matchesSearch = true;
             if (searchQueries.length > 0) {
                 matchesSearch = searchQueries.some(query => code.includes(query));
             }
 
-            // 2. Evaluate Combo Category Badges Filter
-            let matchesBadges = true;
-            if (mode === 'dropbox' && activeBadges.length > 0) {
-                matchesBadges = activeBadges.some(b => cat === b.toUpperCase());
+            // In Filter View, automatically restrict to only the 4 target medical segment groups
+            if (mode === 'filter') {
+                let isCoreCategory = CORE_CATEGORIES.includes(cat);
+                return matchesSearch && isCoreCategory;
             }
 
-            return matchesSearch && matchesBadges;
+            return matchesSearch;
         });
 
-        // Write resulting lines into safe view grid rows
-        targetBody.innerHTML = filtered.map(row => {
+        if (mode === 'dashboard') {
+            CURRENT_FILTERED_DATA = dataPool;
+        }
+
+        targetBody.innerHTML = dataPool.map(row => {
             if(!row) return '';
             let dispCode = row.Test_code && String(row.Test_code) !== 'null' ? String(row.Test_code).toUpperCase() : '';
             let dispCat = row.Category && String(row.Category) !== 'null' ? String(row.Category).toUpperCase() : '<span style="color:#aaa">NONE</span>';
@@ -297,23 +282,36 @@
             `;
         }).join('');
 
-        document.getElementById(`${mode}-count`).innerText = `Found ${filtered.length} matching record entries sequentially sorted.`;
+        document.getElementById(`${mode}-count`).innerText = `Found ${dataPool.length} matching record entries sequentially sorted.`;
     }
 
-    function toggleBadge(element) {
-        const val = element.getAttribute('data-value');
-        
-        // Clear input bar if a user intentionally interacts with filters directly
-        document.getElementById('dropbox-search').value = "";
-
-        if(selectedBadges.includes(val)) {
-            selectedBadges = selectedBadges.filter(v => v !== val);
-            element.classList.remove('selected');
-        } else {
-            selectedBadges.push(val);
-            element.classList.add('selected');
+    function exportToCSV() {
+        if (CURRENT_FILTERED_DATA.length === 0) {
+            alert("There is no filtered data available to export.");
+            return;
         }
-        filterData('dropbox');
+        const headers = ["Test Code", "Category", "Status", "Comments"];
+        const csvRows = [
+            headers.join(','),
+            ...CURRENT_FILTERED_DATA.map(row => {
+                let code = row.Test_code ? String(row.Test_code).toUpperCase() : '';
+                let category = row.Category ? String(row.Category).toUpperCase() : '';
+                let status = row.status ? String(row.status).toUpperCase() : '';
+                let comments = row.Comments ? String(row.Comments).replace(/"/g, '""') : '';
+                if (comments.includes(',') || comments.includes('"') || comments.includes('\n')) {
+                    comments = `"${comments}"`;
+                }
+                return [code, category, status, comments].join(',');
+            })
+        ];
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `MGM_Exported_Records_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     document.getElementById('mgmForm').addEventListener('submit', async (e) => {
@@ -324,11 +322,10 @@
         btn.innerText = "Registering Entry...";
         btn.disabled = true;
 
-        // Extract inputs applying forced systemic upper-casing logic
         const testCode = document.getElementById('testCode').value.trim().toUpperCase();
         const category = document.getElementById('category').value.trim().toUpperCase();
         const status = document.getElementById('status').value.toUpperCase();
-        const comments = document.getElementById('comments').value.trim(); // Stays normal case
+        const comments = document.getElementById('comments').value.trim();
 
         const { error } = await client.from('Test_records').insert([
             { 'Test_code': testCode, 'Category': category, 'status': status, 'Comments': comments }
