@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Data Entry</title>
+    <!-- Load the Supabase JavaScript Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
+        .container { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background: #3ecf8e; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #34b279; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Gym Log Entry</h2>
+    <form id="gymForm">
+        <div class="form-group">
+            <label for="gymCode">Gym Test Code</label>
+            <input type="text" id="gymCode" required placeholder="e.g. MGM-101">
+        </div>
+        
+        <div class="form-group">
+            <label for="category">Category</label>
+            <input type="text" id="category" required placeholder="e.g. Cardio, Weights">
+        </div>
+        
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status">
+                <option value="Normal">Normal</option>
+                <option value="Not Normal">Not Normal</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="comments">Comments</label>
+            <textarea id="comments" rows="3" placeholder="Add any details..."></textarea>
+        </div>
+        
+        <button type="submit">Submit Data</button>
+    </form>
+</div>
+
+<script>
+    // Your verified credentials
+    const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
+    const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
+    
+    // Initializing the connection client
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Handle Form Submission
+    document.getElementById('gymForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); 
+
+        // Grab values from the HTML form inputs
+        const gymCode = document.getElementById('gymCode').value;
+        const category = document.getElementById('category').value;
+        const status = document.getElementById('status').value;
+        const comments = document.getElementById('comments').value;
+
+        // Inserting rows into your precise Supabase schema
+        const { data, error } = await supabase
+            .from('Test_records') 
+            .insert([
+                { 
+                    'Test_code': gymCode, 
+                    'Category': category, 
+                    'Nor/Not': status, 
+                    'Comments': comments 
+                }
+            ]);
+
+        if (error) {
+            console.error('Error inserting data:', error);
+            alert('Failed to save data: ' + error.message);
+        } else {
+            alert('Data sent to Supabase successfully!');
+            document.getElementById('gymForm').reset(); // Clear form fields
+        }
+    });
+</script>
+
+</body>
+</html>
