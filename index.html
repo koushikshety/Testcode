@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MGM Test Records Master Dashboard</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2.43.4/dist/umd/supabase.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary: #3ecf8e;
@@ -75,7 +75,7 @@
         
         .meta-info { font-size: 13px; color: #666; margin-bottom: 10px; font-style: italic; }
 
-        /* Native Print Optimization Engine */
+        /* Print Engine Layout optimization */
         @media print {
             nav, .search-container, .action-row { display: none !important; }
             body { background-color: white; color: black; }
@@ -169,14 +169,14 @@
                 
                 <div class="form-group">
                     <label for="status">Status</label>
-                    <select id="status" onchange="this.value = this.value.toUpperCase();">
+                    <select id="status">
                         <option value="NORMAL">NORMAL</option>
                         <option value="NOT NORMAL">NOT NORMAL</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="comments">Comments (Keeps Normal Case Text)</label>
+                    <label for="comments">Comments</label>
                     <textarea id="comments" rows="4" placeholder="Add custom diagnostics notes or descriptions here..."></textarea>
                 </div>
                 
@@ -195,7 +195,7 @@
                         <input type="text" id="updateTestCode" required oninput="this.value = this.value.toUpperCase();" placeholder="e.g. MGM042">
                         <button type="button" class="btn-action" onclick="loadRecordForUpdate()">Find Code</button>
                     </div>
-                    <small style="color:#777; margin-top:4px; display:block;">Type code and click 'Find Code' to alter existing fields.</small>
+                    <small style="color:#666; margin-top:5px; display:block;">Type code and click 'Find Code' to alter fields.</small>
                 </div>
                 
                 <div class="form-group">
@@ -224,27 +224,27 @@
 </div>
 
 <script>
-    window.onerror = function (msg, url, line) {
-        console.warn("Muted exception trace captured safely:", msg, "at line", line);
-        return true; 
-    };
-
     const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
     
     let client;
-    try {
-        const targetSupabase = window.supabase ? window.supabase : (typeof supabase !== 'undefined' ? supabase : null);
-        if (targetSupabase) {
-            client = targetSupabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
-    } catch(e) {
-        console.error("Initialization Failed", e);
-    }
-
     let MASTER_DATA = [];
     let CURRENT_FILTERED_DATA = [];
     const CORE_CATEGORIES = ["NGS", "IHC", "HISTO", "FISH"];
+
+    // Initialize Connection on window load securely
+    window.addEventListener('DOMContentLoaded', () => {
+        try {
+            if (window.supabase) {
+                client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                fetchRecords();
+            } else {
+                console.error("Supabase script failed to download from CDN.");
+            }
+        } catch(e) {
+            console.error("Initialization Failed:", e);
+        }
+    });
 
     function switchPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -268,18 +268,20 @@
         if(!client) return;
         const { data, error } = await client.from('Test_records').select('*');
         if (error) {
-            console.error(error);
+            console.error("Fetch Fault:", error);
             return;
         }
         
         MASTER_DATA = data ? data.sort(naturalSort) : [];
-        
         filterData('dashboard');
         filterData('filter');
     }
 
     function filterData(mode) {
-        let rawInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'filter-search').value.toLowerCase().trim();
+        let searchInput = document.getElementById(mode === 'dashboard' ? 'db-search' : 'filter-search');
+        if (!searchInput) return;
+        
+        let rawInput = searchInput.value.toLowerCase().trim();
         let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-filter');
         
         let searchQueries = rawInput.split(/[,&]+/).map(q => q.trim()).filter(q => q.length > 0);
@@ -300,7 +302,6 @@
                 let isCoreCategory = CORE_CATEGORIES.includes(cat);
                 return matchesSearch && isCoreCategory;
             }
-
             return matchesSearch;
         });
 
@@ -308,28 +309,33 @@
             CURRENT_FILTERED_DATA = dataPool;
         }
 
-        targetBody.innerHTML = dataPool.map(row => {
-            if(!row) return '';
-            let dispCode = row.Test_code && String(row.Test_code) !== 'null' ? String(row.Test_code).toUpperCase() : '';
-            let dispCat = row.Category && String(row.Category) !== 'null' ? String(row.Category).toUpperCase() : '<span style="color:#aaa">NONE</span>';
-            let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
-            let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
+        if(targetBody) {
+            targetBody.innerHTML = dataPool.map(row => {
+                if(!row) return '';
+                let dispCode = row.Test_code && String(row.Test_code) !== 'null' ? String(row.Test_code).toUpperCase() : '';
+                let dispCat = row.Category && String(row.Category) !== 'null' ? String(row.Category).toUpperCase() : '<span style="color:#aaa">NONE</span>';
+                let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
+                let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
 
-            return `
-                <tr>
-                    <td><b>${dispCode}</b></td>
-                    <td>${dispCat}</td>
-                    <td>
-                        <span class="status-badge ${dispStatus === 'NORMAL' ? 'status-normal' : 'status-notnormal'}">
-                            ${dispStatus}
-                        </span>
-                    </td>
-                    <td>${dispComments}</td>
-                </tr>
-            `;
-        }).join('');
+                return `
+                    <tr>
+                        <td><b>${dispCode}</b></td>
+                        <td>${dispCat}</td>
+                        <td>
+                            <span class="status-badge ${dispStatus === 'NORMAL' ? 'status-normal' : 'status-notnormal'}">
+                                ${dispStatus}
+                            </span>
+                        </td>
+                        <td>${dispComments}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
-        document.getElementById(`${mode}-count`).innerText = `Found ${dataPool.length} matching record entries sequentially sorted.`;
+        let docCount = document.getElementById(`${mode}-count`);
+        if(docCount) {
+            docCount.innerText = `Found ${dataPool.length} matching record entries sequentially sorted.`;
+        }
     }
 
     function exportToCSV() {
@@ -361,7 +367,7 @@
         document.body.removeChild(link);
     }
 
-    // Helper to find and autofill the update form
+    // Auto-filler logic for updating an item
     function loadRecordForUpdate() {
         const targetCode = document.getElementById('updateTestCode').value.trim().toUpperCase();
         if(!targetCode) {
@@ -375,13 +381,13 @@
             document.getElementById('updateCategory').value = matchingRecord.Category ? String(matchingRecord.Category).toUpperCase() : '';
             document.getElementById('updateStatus').value = matchingRecord.status && String(matchingRecord.status).toUpperCase() === 'NOT NORMAL' ? 'NOT NORMAL' : 'NORMAL';
             document.getElementById('updateComments').value = matchingRecord.Comments && String(matchingRecord.Comments) !== 'null' ? matchingRecord.Comments : '';
-            alert(`Record parameters loaded for: ${targetCode}`);
+            alert(`Parameters synced for Code: ${targetCode}`);
         } else {
-            alert(`No existing record found for Code: ${targetCode}. Please confirm correctness.`);
+            alert(`No existing database configuration mapped under code: ${targetCode}`);
         }
     }
 
-    // Handle data submission for addition form
+    // Form Event Handler: Create Entry
     document.getElementById('mgmForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         if(!client) { alert("Database connection offline."); return; }
@@ -410,13 +416,36 @@
         btn.disabled = false;
     });
 
-    // Handle data submission for update form
+    // Form Event Handler: Modify Entry
     document.getElementById('mgmUpdateForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if(!client) { alert("Database connection offline."); return; }
+        if(!client) { alert("Database link offline."); return; }
 
         const btn = document.getElementById('updateSubmitBtn');
-        btn.innerText = "Updating Entry Parameters...";
+        btn.innerText = "Updating Database Parameters...";
         btn.disabled = true;
 
-        const testCode = do
+        const testCode = document.getElementById('updateTestCode').value.trim().toUpperCase();
+        const category = document.getElementById('updateCategory').value.trim().toUpperCase();
+        const status = document.getElementById('updateStatus').value.toUpperCase();
+        const comments = document.getElementById('updateComments').value.trim();
+
+        const { error } = await client
+            .from('Test_records')
+            .update({ 'Category': category, 'status': status, 'Comments': comments })
+            .eq('Test_code', testCode);
+
+        if (error) {
+            alert('Database Update Fault: ' + error.message);
+        } else {
+            alert(`Test Code ${testCode} configuration successfully rewritten!`);
+            document.getElementById('mgmUpdateForm').reset();
+            switchPage('dashboard');
+        }
+        btn.innerText = "Apply Parameter Updates";
+        btn.disabled = false;
+    });
+</script>
+
+</body>
+</html>
