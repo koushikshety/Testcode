@@ -336,7 +336,8 @@
                 let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
                 let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
                 
-                let isVerified = (row.verified === true);
+                // FIXED: Read key matching your database column case sensitivity
+                let isVerified = (row.Verified === true); 
                 let dispVerified = isVerified 
                     ? `<span class="verified-badge verified-true">✅ Verified</span>` 
                     : `<span class="verified-badge verified-false">❌ Unverified</span>`;
@@ -375,7 +376,7 @@
                 let code = row.Test_code ? String(row.Test_code).toUpperCase() : '';
                 let category = row.Category ? String(row.Category).toUpperCase() : '';
                 let status = row.status ? String(row.status).toUpperCase() : '';
-                let verified = row.verified === true ? 'TRUE' : 'FALSE';
+                let verified = row.Verified === true ? 'TRUE' : 'FALSE'; // FIXED: Capitalized column
                 let comments = row.Comments ? String(row.Comments).replace(/"/g, '""') : '';
                 if (comments.includes(',') || comments.includes('"') || comments.includes('\n')) {
                     comments = `"${comments}"`;
@@ -405,7 +406,7 @@
         if (matchingRecord) {
             document.getElementById('updateCategory').value = matchingRecord.Category ? String(matchingRecord.Category).toUpperCase() : '';
             document.getElementById('updateStatus').value = matchingRecord.status && String(matchingRecord.status).toUpperCase() === 'NOT NORMAL' ? 'NOT NORMAL' : 'NORMAL';
-            document.getElementById('updateVerified').checked = (matchingRecord.verified === true);
+            document.getElementById('updateVerified').checked = (matchingRecord.Verified === true); // FIXED: Capitalized column
             document.getElementById('updateComments').value = matchingRecord.Comments && String(matchingRecord.Comments) !== 'null' ? matchingRecord.Comments : '';
             alert(`Parameters synced for Code: ${targetCode}`);
         } else {
@@ -428,8 +429,9 @@
         const isVerified = document.getElementById('verified').checked;
         const comments = document.getElementById('comments').value.trim();
 
+        // FIXED: Using case-sensitive column identity 'Verified'
         const { error } = await client.from('Test_records').insert([
-            { 'Test_code': testCode, 'Category': category, 'status': status, 'verified': isVerified, 'Comments': comments }
+            { 'Test_code': testCode, 'Category': category, 'status': status, 'Verified': isVerified, 'Comments': comments }
         ]);
 
         if (error) {
@@ -458,10 +460,11 @@
         const updatedVerified = document.getElementById('updateVerified').checked;
         const updatedComments = document.getElementById('updateComments').value.trim();
 
+        // FIXED: Using case-sensitive column identity 'Verified' to bypass Schema cache blockades
         const { error } = await client.from('Test_records').update({
             'Category': updatedCategory,
             'status': updatedStatus,
-            'verified': updatedVerified,
+            'Verified': updatedVerified, 
             'Comments': updatedComments
         }).eq('Test_code', targetCode);
 
