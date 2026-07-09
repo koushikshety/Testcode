@@ -102,7 +102,6 @@
     <button id="nav-filter" onclick="switchPage('filter')">🏷️ Category Filters</button>
     <button id="nav-add" onclick="switchPage('add')">➕ Add New Test Code</button>
     <button id="nav-update" onclick="switchPage('update')">🔄 Update Existing Code</button>
-    <button onclick="autoSyncVerificationStatuses()" style="background-color: #3498db; color: white; margin-left: auto; cursor: pointer; border: none; font-weight: bold; border-radius: 6px; padding: 10px 15px;">⚡ Sync Verification via Comments</button>
 </nav>
 
 <div class="container">
@@ -246,7 +245,7 @@
 </div>
 
 <script>
-    const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co'; 
+    const SUPABASE_URL = 'https://sgqhyawfunxuiggmharb.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_jC9bsUEnb9uyA24P5oalvw_Ik8MwB6q';
     
     let client;
@@ -305,9 +304,7 @@
         
         let rawInput = searchInput.value.toLowerCase().trim();
         let targetBody = document.getElementById(mode === 'dashboard' ? 'table-body-dashboard' : 'table-body-filter');
-        
         let searchQueries = rawInput.split(/[,&]+/).map(q => q.trim()).filter(q => q.length > 0);
-
         let dataPool = MASTER_DATA.filter(row => {
             if (!row) return false;
 
@@ -339,7 +336,6 @@
                 let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
                 let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
                 
-                // Adjusted directly to use the lowercase 'verified' mapping
                 let isVerified = (row.verified === true);
                 let dispVerified = isVerified 
                     ? `<span class="verified-badge verified-true">✅ Verified</span>` 
@@ -365,57 +361,6 @@
         if(docCount) {
             docCount.innerText = `Found ${dataPool.length} matching record entries sequentially sorted.`;
         }
-    }
-
-    // Automated comment scanning engine
-    async function autoSyncVerificationStatuses() {
-        if (!client) {
-            alert("Database connection offline.");
-            return;
-        }
-        
-        alert("Starting comment intelligence scan... Please wait.");
-        let updateCount = 0;
-        let failCount = 0;
-
-        for (const row of MASTER_DATA) {
-            if (!row || !row.Test_code) continue;
-
-            let comment = row.Comments ? String(row.Comments).toLowerCase().trim() : '';
-            
-            // Look for matching tags
-            let shouldBeVerified = comment.includes('ver') || 
-                                   comment.includes('verified') || 
-                                   comment.includes('updated');
-            
-            // Hard gate rule for explicit exclusions
-            if (comment.includes('not ver') || comment.includes('not verified')) {
-                shouldBeVerified = false;
-            }
-
-            // Fire an update context targeting the lowercase 'verified' column name
-            if (row.verified !== shouldBeVerified) {
-                const { error } = await client
-                    .from('Test_records')
-                    .update({ 'verified': shouldBeVerified })
-                    .eq('Test_code', row.Test_code);
-
-                if (!error) {
-                    updateCount++;
-                } else {
-                    failCount++;
-                    console.error(`Failed updating code ${row.Test_code}:`, error.message);
-                }
-            }
-        }
-
-        if (failCount > 0) {
-            alert(`Scan completed with warnings: Updated ${updateCount} rows, but ${failCount} rows failed.`);
-        } else {
-            alert(`Sync complete! Adjusted ${updateCount} row states based on your keywords.`);
-        }
-        
-        fetchRecords();
     }
 
     function exportToCSV() {
@@ -457,7 +402,6 @@
         }
         
         const matchingRecord = MASTER_DATA.find(row => row && row.Test_code && String(row.Test_code).toUpperCase() === targetCode);
-        
         if (matchingRecord) {
             document.getElementById('updateCategory').value = matchingRecord.Category ? String(matchingRecord.Category).toUpperCase() : '';
             document.getElementById('updateStatus').value = matchingRecord.status && String(matchingRecord.status).toUpperCase() === 'NOT NORMAL' ? 'NOT NORMAL' : 'NORMAL';
