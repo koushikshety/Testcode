@@ -24,7 +24,7 @@
         nav button.active { background-color: var(--primary); color: white; }
         
         /* Main Container */
-        .container { max-width: 1100px; margin: 30px auto; padding: 20px; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 20px; }
         .page { display: none; }
         .page.active { display: block; }
         
@@ -39,6 +39,11 @@
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input, select, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
         
+        /* Checkbox wrapper adjustments */
+        .form-group-checkbox { display: flex; align-items: center; gap: 10px; margin-top: 10px; margin-bottom: 15px; cursor: pointer; }
+        .form-group-checkbox input { width: auto; margin: 0; cursor: pointer; transform: scale(1.2); }
+        .form-group-checkbox label { margin-bottom: 0; cursor: pointer; font-weight: bold; }
+
         .submit-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .submit-btn:hover { background: var(--primary-hover); }
         
@@ -73,6 +78,10 @@
         .status-normal { background-color: #e6f9f0; color: #1f925b; }
         .status-notnormal { background-color: #feecee; color: #eb3b5a; }
         
+        .verified-badge { font-weight: bold; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+        .verified-true { color: #2ecc71; }
+        .verified-false { color: #95a5a6; font-weight: normal; }
+
         .meta-info { font-size: 13px; color: #666; margin-bottom: 10px; font-style: italic; }
 
         /* Print Engine Layout optimization */
@@ -118,6 +127,7 @@
                             <th>Test Code</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Verification Status</th>
                             <th>Comments</th>
                         </tr>
                     </thead>
@@ -143,6 +153,7 @@
                             <th>Test Code</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Verification Status</th>
                             <th>Comments</th>
                         </tr>
                     </thead>
@@ -173,6 +184,11 @@
                         <option value="NORMAL">NORMAL</option>
                         <option value="NOT NORMAL">NOT NORMAL</option>
                     </select>
+                </div>
+
+                <div class="form-group-checkbox">
+                    <input type="checkbox" id="verified">
+                    <label for="verified">Verified Record</label>
                 </div>
                 
                 <div class="form-group">
@@ -210,6 +226,11 @@
                         <option value="NOT NORMAL">NOT NORMAL</option>
                     </select>
                 </div>
+
+                <div class="form-group-checkbox">
+                    <input type="checkbox" id="updateVerified">
+                    <label for="updateVerified">Verified Record</label>
+                </div>
                 
                 <div class="form-group">
                     <label for="updateComments">Comments</label>
@@ -232,7 +253,7 @@
     let CURRENT_FILTERED_DATA = [];
     const CORE_CATEGORIES = ["NGS", "IHC", "HISTO", "FISH"];
 
-    // Initialize Connection on window load securely
+    // Initialize Connection securely
     window.addEventListener('DOMContentLoaded', () => {
         try {
             if (window.supabase) {
@@ -316,6 +337,12 @@
                 let dispCat = row.Category && String(row.Category) !== 'null' ? String(row.Category).toUpperCase() : '<span style="color:#aaa">NONE</span>';
                 let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
                 let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
+                
+                // Read Verified bool status explicitly
+                let isVerified = (row.Verified === true);
+                let dispVerified = isVerified 
+                    ? `<span class="verified-badge verified-true">✅ Verified</span>` 
+                    : `<span class="verified-badge verified-false">❌ Unverified</span>`;
 
                 return `
                     <tr>
@@ -326,6 +353,7 @@
                                 ${dispStatus}
                             </span>
                         </td>
+                        <td>${dispVerified}</td>
                         <td>${dispComments}</td>
                     </tr>
                 `;
@@ -343,18 +371,19 @@
             alert("There is no filtered data available to export.");
             return;
         }
-        const headers = ["Test Code", "Category", "Status", "Comments"];
+        const headers = ["Test Code", "Category", "Status", "Verified", "Comments"];
         const csvRows = [
             headers.join(','),
             ...CURRENT_FILTERED_DATA.map(row => {
                 let code = row.Test_code ? String(row.Test_code).toUpperCase() : '';
                 let category = row.Category ? String(row.Category).toUpperCase() : '';
                 let status = row.status ? String(row.status).toUpperCase() : '';
+                let verified = row.Verified === true ? 'TRUE' : 'FALSE';
                 let comments = row.Comments ? String(row.Comments).replace(/"/g, '""') : '';
                 if (comments.includes(',') || comments.includes('"') || comments.includes('\n')) {
                     comments = `"${comments}"`;
                 }
-                return [code, category, status, comments].join(',');
+                return [code, category, status, verified, comments].join(',');
             })
         ];
         const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
@@ -380,6 +409,7 @@
         if (matchingRecord) {
             document.getElementById('updateCategory').value = matchingRecord.Category ? String(matchingRecord.Category).toUpperCase() : '';
             document.getElementById('updateStatus').value = matchingRecord.status && String(matchingRecord.status).toUpperCase() === 'NOT NORMAL' ? 'NOT NORMAL' : 'NORMAL';
+            document.getElementById('updateVerified').checked = (matchingRecord.Verified === true);
             document.getElementById('updateComments').value = matchingRecord.Comments && String(matchingRecord.Comments) !== 'null' ? matchingRecord.Comments : '';
             alert(`Parameters synced for Code: ${targetCode}`);
         } else {
@@ -399,10 +429,11 @@
         const testCode = document.getElementById('testCode').value.trim().toUpperCase();
         const category = document.getElementById('category').value.trim().toUpperCase();
         const status = document.getElementById('status').value.toUpperCase();
+        const isVerified = document.getElementById('verified').checked;
         const comments = document.getElementById('comments').value.trim();
 
         const { error } = await client.from('Test_records').insert([
-            { 'Test_code': testCode, 'Category': category, 'status': status, 'Comments': comments }
+            { 'Test_code': testCode, 'Category': category, 'status': status, 'Verified': isVerified, 'Comments': comments }
         ]);
 
         if (error) {
@@ -422,23 +453,26 @@
         if(!client) { alert("Database link offline."); return; }
 
         const btn = document.getElementById('updateSubmitBtn');
-        btn.innerText = "Updating Database Parameters...";
+        btn.innerText = "Applying Updates...";
         btn.disabled = true;
 
-        const testCode = document.getElementById('updateTestCode').value.trim().toUpperCase();
-        const category = document.getElementById('updateCategory').value.trim().toUpperCase();
-        const status = document.getElementById('updateStatus').value.toUpperCase();
-        const comments = document.getElementById('updateComments').value.trim();
+        const targetCode = document.getElementById('updateTestCode').value.trim().toUpperCase();
+        const updatedCategory = document.getElementById('updateCategory').value.trim().toUpperCase();
+        const updatedStatus = document.getElementById('updateStatus').value.toUpperCase();
+        const updatedVerified = document.getElementById('updateVerified').checked;
+        const updatedComments = document.getElementById('updateComments').value.trim();
 
-        const { error } = await client
-            .from('Test_records')
-            .update({ 'Category': category, 'status': status, 'Comments': comments })
-            .eq('Test_code', testCode);
+        const { error } = await client.from('Test_records').update({
+            'Category': updatedCategory,
+            'status': updatedStatus,
+            'Verified': updatedVerified,
+            'Comments': updatedComments
+        }).eq('Test_code', targetCode);
 
         if (error) {
             alert('Database Update Fault: ' + error.message);
         } else {
-            alert(`Test Code ${testCode} configuration successfully rewritten!`);
+            alert(`Record under code ${targetCode} successfully updated!`);
             document.getElementById('mgmUpdateForm').reset();
             switchPage('dashboard');
         }
@@ -446,6 +480,5 @@
         btn.disabled = false;
     });
 </script>
-
 </body>
 </html>
