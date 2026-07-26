@@ -74,6 +74,10 @@
         th { background-color: #fafafa; font-weight: bold; color: #666; }
         tr:hover { background-color: #fafdff; }
         
+        /* Highlight row red if Category is COUPON/PHARMA and Priority Test is TRUE */
+        tr.highlight-red-row { background-color: #ffcccc !important; color: #900000; font-weight: bold; }
+        tr.highlight-red-row:hover { background-color: #ffb3b3 !important; }
+
         .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
         .status-normal { background-color: #e6f9f0; color: #1f925b; }
         .status-notnormal { background-color: #feecee; color: #eb3b5a; }
@@ -81,6 +85,10 @@
         .verified-badge { font-weight: bold; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
         .verified-true { color: #2ecc71; }
         .verified-false { color: #95a5a6; font-weight: normal; }
+
+        .priority-badge { font-weight: bold; font-size: 13px; }
+        .priority-true { color: #e74c3c; }
+        .priority-false { color: #95a5a6; font-weight: normal; }
 
         .meta-info { font-size: 13px; color: #666; margin-bottom: 10px; font-style: italic; }
 
@@ -92,6 +100,7 @@
             .card { box-shadow: none; padding: 0; margin: 0; }
             th { background-color: #eee !important; color: black !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .status-badge { border: 1px solid #ccc !important; padding: 2px 6px; }
+            tr.highlight-red-row { background-color: #ffcccc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -127,6 +136,7 @@
                             <th>Test Code</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Priority Test</th>
                             <th>Verification Status</th>
                             <th>Comments</th>
                         </tr>
@@ -153,6 +163,7 @@
                             <th>Test Code</th>
                             <th>Category</th>
                             <th>Status</th>
+                            <th>Priority Test</th>
                             <th>Verification Status</th>
                             <th>Comments</th>
                         </tr>
@@ -175,7 +186,7 @@
                 
                 <div class="form-group">
                     <label for="category">Category</label>
-                    <input type="text" id="category" required oninput="this.value = this.value.toUpperCase();" placeholder="e.g. NGS, HISTO, FISH, IHC">
+                    <input type="text" id="category" required oninput="this.value = this.value.toUpperCase();" placeholder="e.g. NGS, HISTO, FISH, IHC, COUPON, PHARMA">
                 </div>
                 
                 <div class="form-group">
@@ -184,6 +195,11 @@
                         <option value="NORMAL">NORMAL</option>
                         <option value="NOT NORMAL">NOT NORMAL</option>
                     </select>
+                </div>
+
+                <div class="form-group-checkbox">
+                    <input type="checkbox" id="priorityTest">
+                    <label for="priorityTest">⚡ Priority Test</label>
                 </div>
 
                 <div class="form-group-checkbox">
@@ -216,7 +232,7 @@
                 
                 <div class="form-group">
                     <label for="updateCategory">Category</label>
-                    <input type="text" id="updateCategory" required oninput="this.value = this.value.toUpperCase();" placeholder="e.g. NGS, HISTO">
+                    <input type="text" id="updateCategory" required oninput="this.value = this.value.toUpperCase();" placeholder="e.g. NGS, HISTO, COUPON, PHARMA">
                 </div>
                 
                 <div class="form-group">
@@ -225,6 +241,11 @@
                         <option value="NORMAL">NORMAL</option>
                         <option value="NOT NORMAL">NOT NORMAL</option>
                     </select>
+                </div>
+
+                <div class="form-group-checkbox">
+                    <input type="checkbox" id="updatePriorityTest">
+                    <label for="updatePriorityTest">⚡ Priority Test</label>
                 </div>
 
                 <div class="form-group-checkbox">
@@ -336,14 +357,24 @@
                 let dispStatus = row.status && String(row.status) !== 'null' ? String(row.status).toUpperCase() : 'UNKNOWN';
                 let dispComments = row.Comments && String(row.Comments) !== 'null' ? row.Comments : '';
                 
-                // FIXED: Read key matching your database column case sensitivity
                 let isVerified = (row.Verified === true); 
                 let dispVerified = isVerified 
                     ? `<span class="verified-badge verified-true">✅ Verified</span>` 
                     : `<span class="verified-badge verified-false">❌ Unverified</span>`;
 
+                let isPriority = (row.priority_test === true);
+                let dispPriority = isPriority
+                    ? `<span class="priority-badge priority-true">⚡ YES</span>`
+                    : `<span class="priority-badge priority-false">NO</span>`;
+
+                // Highlight Row Red if Category is COUPON or PHARMA AND Priority Test is True
+                let cleanCategory = dispCat.trim().toUpperCase();
+                let isTargetCategory = (cleanCategory === 'COUPON' || cleanCategory === 'PHARMA');
+                let shouldHighlightRed = (isTargetCategory && isPriority);
+                let rowClass = shouldHighlightRed ? 'class="highlight-red-row"' : '';
+
                 return `
-                    <tr>
+                    <tr ${rowClass}>
                         <td><b>${dispCode}</b></td>
                         <td>${dispCat}</td>
                         <td>
@@ -351,6 +382,7 @@
                                 ${dispStatus}
                             </span>
                         </td>
+                        <td>${dispPriority}</td>
                         <td>${dispVerified}</td>
                         <td>${dispComments}</td>
                     </tr>
@@ -369,19 +401,20 @@
             alert("There is no filtered data available to export.");
             return;
         }
-        const headers = ["Test Code", "Category", "Status", "Verified", "Comments"];
+        const headers = ["Test Code", "Category", "Status", "Priority Test", "Verified", "Comments"];
         const csvRows = [
             headers.join(','),
             ...CURRENT_FILTERED_DATA.map(row => {
                 let code = row.Test_code ? String(row.Test_code).toUpperCase() : '';
                 let category = row.Category ? String(row.Category).toUpperCase() : '';
                 let status = row.status ? String(row.status).toUpperCase() : '';
-                let verified = row.Verified === true ? 'TRUE' : 'FALSE'; // FIXED: Capitalized column
+                let priority = row.priority_test === true ? 'TRUE' : 'FALSE';
+                let verified = row.Verified === true ? 'TRUE' : 'FALSE';
                 let comments = row.Comments ? String(row.Comments).replace(/"/g, '""') : '';
                 if (comments.includes(',') || comments.includes('"') || comments.includes('\n')) {
                     comments = `"${comments}"`;
                 }
-                return [code, category, status, verified, comments].join(',');
+                return [code, category, status, priority, verified, comments].join(',');
             })
         ];
         const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
@@ -406,7 +439,8 @@
         if (matchingRecord) {
             document.getElementById('updateCategory').value = matchingRecord.Category ? String(matchingRecord.Category).toUpperCase() : '';
             document.getElementById('updateStatus').value = matchingRecord.status && String(matchingRecord.status).toUpperCase() === 'NOT NORMAL' ? 'NOT NORMAL' : 'NORMAL';
-            document.getElementById('updateVerified').checked = (matchingRecord.Verified === true); // FIXED: Capitalized column
+            document.getElementById('updatePriorityTest').checked = (matchingRecord.priority_test === true);
+            document.getElementById('updateVerified').checked = (matchingRecord.Verified === true);
             document.getElementById('updateComments').value = matchingRecord.Comments && String(matchingRecord.Comments) !== 'null' ? matchingRecord.Comments : '';
             alert(`Parameters synced for Code: ${targetCode}`);
         } else {
@@ -426,12 +460,12 @@
         const testCode = document.getElementById('testCode').value.trim().toUpperCase();
         const category = document.getElementById('category').value.trim().toUpperCase();
         const status = document.getElementById('status').value.toUpperCase();
+        const isPriority = document.getElementById('priorityTest').checked;
         const isVerified = document.getElementById('verified').checked;
         const comments = document.getElementById('comments').value.trim();
 
-        // FIXED: Using case-sensitive column identity 'Verified'
         const { error } = await client.from('Test_records').insert([
-            { 'Test_code': testCode, 'Category': category, 'status': status, 'Verified': isVerified, 'Comments': comments }
+            { 'Test_code': testCode, 'Category': category, 'status': status, 'priority_test': isPriority, 'Verified': isVerified, 'Comments': comments }
         ]);
 
         if (error) {
@@ -457,13 +491,14 @@
         const targetCode = document.getElementById('updateTestCode').value.trim().toUpperCase();
         const updatedCategory = document.getElementById('updateCategory').value.trim().toUpperCase();
         const updatedStatus = document.getElementById('updateStatus').value.toUpperCase();
+        const updatedPriority = document.getElementById('updatePriorityTest').checked;
         const updatedVerified = document.getElementById('updateVerified').checked;
         const updatedComments = document.getElementById('updateComments').value.trim();
 
-        // FIXED: Using case-sensitive column identity 'Verified' to bypass Schema cache blockades
         const { error } = await client.from('Test_records').update({
             'Category': updatedCategory,
             'status': updatedStatus,
+            'priority_test': updatedPriority,
             'Verified': updatedVerified, 
             'Comments': updatedComments
         }).eq('Test_code', targetCode);
